@@ -292,7 +292,7 @@ class _AgencyTemplateScreenState extends State<AgencyTemplateScreen> {
                           ),
                         ),
                         onPressed: () {
-                          // TODO: détails si nécessaire
+                          
                         },
                         icon: const Icon(Icons.arrow_forward,
                             color: Colors.white, size: 16),

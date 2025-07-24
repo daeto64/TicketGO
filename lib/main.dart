@@ -16,6 +16,8 @@ import 'screens/profile_sub_screen.dart';
 import 'screens/payment_screen.dart';
 import 'screens/payment_confirm_screen.dart';
 import 'screens/reservation_receipt_screen.dart';
+import 'screens/otp_verification_screen.dart';
+import 'screens/otp_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,13 +66,18 @@ class TicketGoApp extends StatelessWidget {
           PaymentConfirmScreen.routeName: (_) => const PaymentConfirmScreen(),
           ReservationReceiptScreen.routeName: (_) =>
               const ReservationReceiptScreen(),
+          OTPScreen.routeName: (_) => const OTPScreen(verificationId: ''),
+          '/otp-verification': (_) => const OtpVerificationScreen(
+                verificationId: '',
+                phoneNumber: '',
+              ),
         },
       ),
     );
   }
 }
 
-/// Routeur d’accueil : écoute FirebaseAuth, synchronise AppState.
+/// Routeur d'accueil : écoute FirebaseAuth, synchronise AppState.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 

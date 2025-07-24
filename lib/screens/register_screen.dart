@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import '../widgets/app_logo.dart';
-import '../widgets/primary_button.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../services/auth_service.dart';
+import 'otp_verification_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  static const routeName = '/register';
+  static const routeName = '/register'; // ✅ Ajout de routeName manquant
+  
   const RegisterScreen({super.key});
 
   @override
@@ -13,100 +14,73 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  bool _loading = false;
-  String? _error;
+  final TextEditingController _emailOrPhoneController = TextEditingController();
+  final AuthService _authService = AuthService();
 
-  @override
-  void dispose() {
-    _name.dispose();
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
+  bool isPhoneNumber(String input) {
+    final phoneRegex = RegExp(r'^\+?[0-9]{8,15}$');
+    return phoneRegex.hasMatch(input);
   }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      // Création compte. AppState sera mis à jour via AuthGate.
-      await AuthService().registerWithEmailPassword(
-        _name.text.trim(),
-        _email.text.trim(),
-        _password.text,
+  void _sendOtp() {
+    final input = _emailOrPhoneController.text.trim();
+    if (input.isEmpty) {
+      Fluttertoast.showToast(msg: "Veuillez saisir un email ou un numéro.");
+      return;
+    }
+
+    if (isPhoneNumber(input)) {
+      // Envoi du code OTP par SMS
+      _authService.sendPhoneVerificationCode(
+        phoneNumber: input,
+        onCodeSent: (verificationId) {
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => OtpVerificationScreen(
+                phoneNumber: input,
+                verificationId: verificationId,
+              ),
+            ),
+          );
+        },
+        onError: (error) {
+          Fluttertoast.showToast(msg: "Erreur : ${error.message}");
+        },
       );
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed('/home');
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    } else {
+      Fluttertoast.showToast(msg: "Authentification par email non encore implémentée.");
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Information')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+      appBar: AppBar(title: const Text("Créer un compte")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
           child: Column(
             children: [
-              const AppLogo(size: 100),
-              const SizedBox(height: 24),
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: _name,
-                      decoration: const InputDecoration(
-                        labelText: 'Nom et Prénom',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => (v == null || v.isEmpty)
-                          ? 'Entrez votre nom complet'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _email,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) =>
-                          (v == null || v.isEmpty) ? 'Entrez votre email' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _password,
-                      decoration: const InputDecoration(
-                        labelText: 'Mot de passe',
-                        border: OutlineInputBorder(),
-                      ),
-                      obscureText: true,
-                      validator: (v) => (v == null || v.length < 6)
-                          ? 'Au moins 6 caractères'
-                          : null,
-                    ),
-                  ],
+              TextFormField(
+                controller: _emailOrPhoneController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: "Email ou numéro de téléphone",
                 ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Ce champ est requis';
+                  }
+                  return null;
+                },
               ),
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                Text(_error!, style: const TextStyle(color: Colors.red)),
-              ],
-              const SizedBox(height: 32),
-              PrimaryButton(
-                label: _loading ? 'Création...' : "S'inscrire",
-                onPressed: _loading ? null : _submit,
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _sendOtp,
+                child: const Text("Envoyer le code de vérification"),
               ),
             ],
           ),

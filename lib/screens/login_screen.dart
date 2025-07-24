@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/app_logo.dart';
 import '../widgets/primary_button.dart';
 import '../services/auth_service.dart';
+import 'register_screen.dart'; // ✅ Import ajouté
 
 class LoginScreen extends StatefulWidget {
   static const routeName = '/login';
@@ -34,8 +35,8 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       // On se connecte. AuthGate mettra AppState à jour via FirebaseAuth.
       await AuthService().signInWithEmailPassword(
-        _email.text.trim(),
-        _password.text,
+        email: _email.text.trim(), // ✅ Paramètre nommé
+        password: _password.text,
       );
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/home');
@@ -120,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 8),
                     TextButton(
                       onPressed: () =>
-                          Navigator.of(context).pushNamed('/register'),
+                          Navigator.of(context).pushNamed(RegisterScreen.routeName), // ✅ Utilisation de la constante
                       child: const Text("Créer un compte / S'inscrire"),
                     ),
                   ],

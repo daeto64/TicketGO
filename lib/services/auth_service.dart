@@ -1,102 +1,119 @@
-import 'package:firebase_auth/firebase_auth.dart' as fb;
-import '../models/app_user.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
-  final fb.FirebaseAuth _auth = fb.FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  Stream<AppUser?> get userChanges =>
-      _auth.userChanges().map(_userFromFirebaseUser);
-
-  AppUser? _userFromFirebaseUser(fb.User? user) {
-    if (user == null) return null;
-    return AppUser(
-      uid: user.uid,
-      name: user.displayName,
-      email: user.email,
-      phone: user.phoneNumber,
-    );
-  }
-
-  Future<AppUser?> signInWithEmailPassword(String email, String password) async {
+  // ✅ Méthode manquante : signInWithEmailPassword
+  Future<UserCredential> signInWithEmailPassword({
+    required String email,
+    required String password,
+  }) async {
     try {
-      // Log debug (EN CLAIR : évite en prod)
-      // ignore: avoid_print
-      print('>> AuthService.signIn email="$email" (len=${email.length}) pwLen=${password.length}');
-      final cred = await _auth.signInWithEmailAndPassword(
+      return await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
-      return _userFromFirebaseUser(cred.user);
-    } on fb.FirebaseAuthException catch (e) {
-      // ignore: avoid_print
-      print('!! SIGN-IN ERROR code=${e.code} message=${e.message}');
-      throw Exception(_mapSignInError(e));
-    } catch (e) {
-      // ignore: avoid_print
-      print('!! SIGN-IN UNKNOWN ERROR $e');
-      throw Exception('Erreur de connexion : $e');
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
     }
   }
 
-  Future<AppUser?> registerWithEmailPassword(
-      String name, String email, String password) async {
-    try {
-      final cred = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      await cred.user?.updateDisplayName(name);
-      return _userFromFirebaseUser(cred.user);
-    } on fb.FirebaseAuthException catch (e) {
-      // ignore: avoid_print
-      print('!! REGISTER ERROR code=${e.code} message=${e.message}');
-      throw Exception(_mapRegisterError(e));
-    } catch (e) {
-      // ignore: avoid_print
-      print('!! REGISTER UNKNOWN ERROR $e');
-      throw Exception('Erreur lors de la création du compte : $e');
-    }
-  }
-
+  // ✅ Méthode manquante : signOut
   Future<void> signOut() async {
-    await _auth.signOut();
-  }
-
-  // --- mapping erreurs vers messages FR lisibles ---
-
-  String _mapSignInError(fb.FirebaseAuthException e) {
-    switch (e.code) {
-      case 'invalid-email':
-        return "Adresse email invalide.";
-      case 'user-disabled':
-        return "Ce compte est désactivé.";
-      case 'user-not-found':
-        return "Aucun compte trouvé pour cet email.";
-      case 'wrong-password':
-        return "Mot de passe incorrect.";
-      case 'invalid-credential':
-        return "Identifiants invalides (email/mot de passe).";
-      case 'network-request-failed':
-        return "Pas de connexion réseau.";
-      case 'invalid-api-key':
-        return "Clé API Firebase invalide.";
-      default:
-        return "Erreur de connexion (${e.code}) : ${e.message}";
+    try {
+      await _auth.signOut();
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
     }
   }
 
-  String _mapRegisterError(fb.FirebaseAuthException e) {
+  // ✅ Méthode manquante : verifyOtpCode avec paramètres nommés
+  Future<UserCredential> verifyOtpCode({
+    required String verificationId,
+    required String smsCode,
+  }) async {
+    try {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: verificationId,
+        smsCode: smsCode,
+      );
+      return await _auth.signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    }
+  }
+
+  // Méthode pour envoyer le code de vérification par téléphone
+  Future<void> sendPhoneVerificationCode({
+    required String phoneNumber,
+    required Function(String) onCodeSent,
+    required Function(FirebaseAuthException) onError,
+  }) async {
+    try {
+      await _auth.verifyPhoneNumber(
+        phoneNumber: phoneNumber,
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          // Auto-résolution (sur Android)
+          await _auth.signInWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          onError(e);
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          onCodeSent(verificationId);
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          // Timeout
+        },
+      );
+    } catch (e) {
+      onError(FirebaseAuthException(
+        code: 'unknown',
+        message: e.toString(),
+      ));
+    }
+  }
+
+  // Méthode pour créer un compte avec email/password
+  Future<UserCredential> createUserWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      return await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    }
+  }
+
+  // Utilisateur actuel
+  User? get currentUser => _auth.currentUser;
+
+  // Stream des changements d'état d'authentification
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
+
+  // Gestion des erreurs Firebase Auth
+  Exception _handleAuthException(FirebaseAuthException e) {
     switch (e.code) {
+      case 'user-not-found':
+        return Exception('Aucun utilisateur trouvé avec cet email.');
+      case 'wrong-password':
+        return Exception('Mot de passe incorrect.');
       case 'email-already-in-use':
-        return "Cet email est déjà utilisé.";
-      case 'invalid-email':
-        return "Adresse email invalide.";
-      case 'operation-not-allowed':
-        return "La création de compte est désactivée.";
+        return Exception('Un compte existe déjà avec cet email.');
       case 'weak-password':
-        return "Mot de passe trop faible (min 6 caractères).";
+        return Exception('Le mot de passe est trop faible.');
+      case 'invalid-email':
+        return Exception('L\'adresse email n\'est pas valide.');
+      case 'too-many-requests':
+        return Exception('Trop de tentatives. Réessayez plus tard.');
+      case 'network-request-failed':
+        return Exception('Erreur de connexion. Vérifiez votre internet.');
       default:
-        return "Erreur inscription (${e.code}) : ${e.message}";
+        return Exception('Erreur d\'authentification: ${e.message}');
     }
   }
 }

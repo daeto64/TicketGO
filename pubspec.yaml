@@ -15,6 +15,7 @@ dependencies:
   firebase_auth: ^5.1.4
   cloud_firestore: ^5.4.4
   intl: ^0.19.0
+  fluttertoast: ^8.2.4  # ✅ Dépendance ajoutée pour résoudre les erreurs
 
 dev_dependencies:
   flutter_test:
@@ -28,4 +29,3 @@ flutter:
     - assets/images/general.jpg
     - assets/images/finex.jpg
     - assets/images/touristique.jpg
-
